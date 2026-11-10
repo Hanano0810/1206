@@ -6,8 +6,8 @@
   <meta name="robots" content="noindex">
   <title>なるき</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=3">
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
   <main id="app"></main>
@@ -24,6 +24,12 @@
       return String(text).replace(/[&<>"']/g, (c) => ({
         "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
       }[c]));
+    }
+
+    // 絵文字だけ行の高さを広げないように包む（手紙の罫線がずれないように）
+    function emojiSafe(html) {
+      return html.replace(/\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*/gu,
+        (m) => `<span class="emo">${m}</span>`);
     }
 
     // 写真が未設定なら灰色の枠を出す
@@ -241,7 +247,7 @@
         <section class="screen cover">
           <article class="paper">
             <p class="paper-to">${esc(l.to)}</p>
-            <div class="paper-body">${esc(l.body)}</div>
+            <div class="paper-body">${emojiSafe(esc(l.body))}</div>
             <p class="paper-from">${esc(l.from)}</p>
             <button class="know-btn" type="button">${esc(SITE.team)}の${esc(SITE.name)}を知る</button>
           </article>
