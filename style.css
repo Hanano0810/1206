@@ -198,20 +198,31 @@ button { font: inherit; color: inherit; cursor: pointer; }
   font-size: 1.05rem;
 }
 .game-tip { margin: 10px 0 0; color: #888; font-size: 0.8rem; }
-/* ゲームをとばして手紙へ（いつでも押せる） */
+/* 上のスキップボタン（いつでもゲームをとばして手紙へ） */
+.game-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  margin: 0 0 12px;
+}
+.game-top .game-head { flex: 1; margin: 0; }
 .skip-btn {
-  min-height: 44px;
-  margin-top: 4px;
-  padding: 0 12px;
+  min-height: 40px;
+  padding: 8px 16px;
   border: 0;
-  background: none;
-  color: var(--sub, #888);
+  border-radius: 999px;
+  background: var(--main);
+  color: #fff;
   font: inherit;
   font-size: 0.8rem;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
   cursor: pointer;
 }
+.skip-btn:active { opacity: 0.8; }
 
 /* ---------- ③ ひらくアニメーション ---------- */
 .opening { transition: transform 0.5s ease-in 1.4s, opacity 0.5s ease-in 1.4s; }

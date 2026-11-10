@@ -7,12 +7,12 @@
   <title>なるき</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
   <main id="app"></main>
 
-  <script src="messages.js?v=2"></script>
+  <script src="messages.js?v=3"></script>
   <script>
     const app = document.getElementById("app");
     const root = document.documentElement;
@@ -71,6 +71,9 @@
       show(`
         <section class="screen cover">
           <div class="game-card">
+            <div class="game-top">
+              <button class="skip-btn" type="button">スキップして手紙をひらく</button>
+            </div>
             <p class="game-title">${esc(g.title)}</p>
             <p class="game-hud">ラリー <b class="rally">0</b> / ${g.goal}</p>
             <div class="game-wrap">
@@ -81,7 +84,6 @@
               </div>
             </div>
             <p class="game-tip">ラケットの端で打つと角度がつくよ</p>
-            <button class="skip-btn" type="button">スキップして手紙をひらく</button>
           </div>
         </section>`, "is-cover");
 
