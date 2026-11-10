@@ -7,12 +7,12 @@
   <title>なるき</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
   <main id="app"></main>
 
-  <script src="messages.js"></script>
+  <script src="messages.js?v=2"></script>
   <script>
     const app = document.getElementById("app");
     const root = document.documentElement;
@@ -81,6 +81,7 @@
               </div>
             </div>
             <p class="game-tip">ラケットの端で打つと角度がつくよ</p>
+            <button class="skip-btn" type="button">スキップして手紙をひらく</button>
           </div>
         </section>`, "is-cover");
 
@@ -90,6 +91,7 @@
       const W = 300, H = 420, EDGE = 14;
       const rallyEl = app.querySelector(".rally");
       const msg = app.querySelector(".game-msg");
+      app.querySelector(".skip-btn").addEventListener("click", renderOpening);
       const player = { x: W / 2, y: H - 46, w: g.racket, h: 10 };
       const cpu = { x: W / 2, y: 36, w: 64, h: 10 };
       const ball = { x: W / 2, y: H / 2, vx: 0, vy: 0, r: 7 };
@@ -144,7 +146,7 @@
           if (rally >= g.goal) {
             state = "clear";
             showMsg(`<p class="game-big">クリア！</p><p>手紙をひらくよ</p>`);
-            setTimeout(renderOpening, 1400);
+            setTimeout(() => { if (msg.isConnected) renderOpening(); }, 1400); // スキップ済みなら二重にひらかない
           }
         }
 
