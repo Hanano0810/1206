@@ -7,12 +7,12 @@
   <title>なるき</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
   <main id="app"></main>
 
-  <script src="messages.js?v=4"></script>
+  <script src="messages.js?v=5"></script>
   <script>
     const app = document.getElementById("app");
     const root = document.documentElement;
@@ -72,120 +72,258 @@
       app.querySelector(".env-btn").addEventListener("click", renderGame);
     }
 
-    /* ② ミニゲーム：みんな共通の音ゲー（スコアで11人のランキング） */
+    /* ② ミニゲーム：みんな共通の「つなげて消す」パズル（スコアで11人のランキング） */
     // ランキングの記録先（Google Apps Script のウェブアプリのURL）。空のあいだはランキングなしで遊べる
     const RANKING_URL = "";
     // URLの最後に ?test をつけると記録しない（動作確認用）。?test&auto だと自動でプレイする
-    const RG_QUERY = new URLSearchParams(location.search);
-    const RG_TEST = RG_QUERY.has("test");
-    const RG_AUTO = RG_TEST && RG_QUERY.has("auto");
+    const MG_QUERY = new URLSearchParams(location.search);
+    const MG_TEST = MG_QUERY.has("test");
+    const MG_AUTO = MG_TEST && MG_QUERY.has("auto");
 
-    const RG_SPB = 60 / 128;                                    // 1拍の秒数（テンポ128）
-    const RG_WIN = { PERFECT: 0.05, GREAT: 0.09, GOOD: 0.14 };  // 判定の幅（秒）
-    const RG_PTS = { PERFECT: 1, GREAT: 0.7, GOOD: 0.4, MISS: 0 };
-    const RG_LANE_COLORS = ["#ff6b8b", "#ffc94a", "#4cc3ff"];
-    const RG_END_BEAT = 66;                                     // ここまで曲が進んだら結果へ
-    // 譜面：[拍, レーン(0〜2), 音(MIDI番号。null は効果音だけ), 長さ(拍)]。時間順に並べる
-    const RG_CHART = [
-      [4, 0, null, 1], [5, 1, null, 1], [6, 2, null, 1], [7, 1, null, 1],
-      [8, 0, 76, 1], [9, 1, 79, 1], [10, 2, 84, 1], [11, 1, 79, 1],
-      [12, 0, 74, 1], [13, 1, 79, 1], [14, 2, 83, 2],
-      [16, 0, 72, 1], [17, 1, 76, 1], [18, 2, 81, 1], [19, 1, 76, 1],
-      [20, 0, 77, 1], [21, 1, 81, 1], [22, 2, 84, 2],
-      [24, 1, 79, 0.5], [24.5, 2, 81, 0.5], [25, 1, 79, 1], [26, 0, 76, 1], [27, 0, 72, 1],
-      [28, 0, 74, 0.5], [28.5, 1, 76, 0.5], [29, 2, 79, 1], [30, 1, 83, 1], [31, 2, 86, 1],
-      [32, 2, 84, 1], [33, 1, 83, 0.5], [33.5, 0, 81, 0.5], [34, 1, 76, 2],
-      [36, 0, 77, 0.5], [36.5, 1, 79, 0.5], [37, 2, 81, 1], [38, 2, 84, 1], [39, 1, 79, 1],
-      [40, 1, 84, 1], [41, 0, 81, 0.5], [41.5, 1, 84, 0.5], [42, 2, 86, 1], [43, 1, 84, 1],
-      [44, 1, 83, 1], [45, 0, 79, 0.5], [45.5, 1, 83, 0.5], [46, 2, 86, 1], [47, 1, 83, 1],
-      [48, 1, 79, 1], [49, 0, 76, 0.5], [49.5, 1, 79, 0.5], [50, 2, 83, 1], [51, 1, 79, 1],
-      [52, 0, 81, 0.5], [52.5, 1, 83, 0.5], [53, 2, 84, 0.5], [53.5, 2, 88, 0.5], [54, 1, 81, 2],
-      [56, 1, 81, 1], [57, 2, 84, 1], [58, 0, 77, 0.5], [58.5, 1, 81, 0.5], [59, 2, 84, 1],
-      [60, 1, 83, 1], [61, 2, 86, 1], [62, 0, 79, 0.5], [62.5, 1, 83, 0.5], [63, 2, 86, 1],
-      [64, 1, 84, 3],
+    const MG_TIME = 30;               // 制限時間（秒）
+    const MG_W = 300, MG_H = 420;     // ゲーム画面の中の大きさ
+    const MG_R = 22;                  // どうぶつの半径
+    const MG_COUNT = 46;              // 画面にいるどうぶつの数
+    const MG_LINK = MG_R * 3.7;       // これより近ければ、つなげられる（ひとつ飛ばしくらいまでOK）
+    const MG_COMBO_WINDOW = 2.5;      // この秒数のうちに次を消すと、コンボが続く
+    const MG_FEVER_NEED = 30;         // これだけ消すとフィーバー（得点2倍）
+    const MG_FEVER_TIME = 5;          // フィーバーの長さ（秒）
+    const MG_BOMB_CHAIN = 7;          // これ以上つなげるとボムが出る
+    const MG_BOMB_RADIUS = 80;        // ボムで消える範囲
+    const MG_RANK = { S: 80000, A: 50000, B: 25000 };  // ランクの目安（点）
+    const MG_ANIMALS = [
+      { kind: "cat", color: "#ff8fb1" },    // ねこ
+      { kind: "chick", color: "#ffd23f" },  // ひよこ
+      { kind: "rabbit", color: "#8fd0ff" }, // うさぎ
+      { kind: "frog", color: "#7fd67f" },   // かえる
+      { kind: "bear", color: "#e3a76f" },   // くま
     ];
-    // 1小節ずつのコード（ベースと伴奏に使う）
-    const RG_BARS = ["C", "C", "C", "G", "Am", "F", "C", "G", "Am", "F", "F", "G", "Em", "Am", "F", "G"];
-    const RG_CHORDS = {
-      C: { root: 36, notes: [60, 64, 67] }, G: { root: 43, notes: [55, 59, 62] },
-      Am: { root: 45, notes: [57, 60, 64] }, F: { root: 41, notes: [53, 57, 60] },
-      Em: { root: 40, notes: [52, 55, 59] },
-    };
+    const MG_SCALE = [72, 74, 76, 79, 81, 84, 86, 88, 91, 93, 96];  // つなぐたびに上がる音（ド レ ミ ソ ラ…）
 
-    // オリジナル曲（16小節）の音を、拍ごとのリストにする
-    function rgSongEvents() {
-      const ev = [];
-      const add = (beat, kind, a, b) => ev.push({ beat, kind, a, b });
-      for (let bar = 0; bar < 16; bar++) {
-        const b0 = bar * 4, chorus = bar >= 10, chord = RG_CHORDS[RG_BARS[bar]];
-        for (let i = 0; i < 4; i++) {
-          if (bar === 0 || chorus || i % 2 === 0) add(b0 + i, "kick");
-          if (bar > 0 && i % 2 === 1) add(b0 + i, "snare");
-          if (bar >= 2) add(b0 + i + 0.5, "stab", chord.notes);
-        }
-        for (let i = 0; i < 8; i++) {
-          add(b0 + i / 2, "hat", chorus && i % 2 === 1);
-          add(b0 + i / 2, "bass", chord.root + (i % 2 ? 12 : 0));
-        }
-      }
-      [63.25, 63.5, 63.75].forEach((b) => add(b, "snare"));        // 最後のフィル
-      add(64, "kick"); add(64, "crash"); add(64, "bass", 36); add(64, "chord", RG_CHORDS.C.notes);
-      RG_CHART.forEach(([beat, , midi, len]) => { if (midi) add(beat, "lead", midi, len); });
-      return ev.sort((x, y) => x.beat - y.beat);
-    }
-
-    // 音を作る部品（Web Audio）
-    function rgMakeAudio() {
+    // ---- 音（Web Audio でその場で作る） ----
+    function mgMakeAudio() {
       try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const comp = ctx.createDynamicsCompressor();
+      comp.connect(ctx.destination);
       const master = ctx.createGain();
       master.gain.value = 0.9;
-      master.connect(ctx.createDynamicsCompressor()).connect(ctx.destination);
+      master.connect(comp);
+      const bgm = ctx.createGain();
+      bgm.gain.value = 0.4;
+      bgm.connect(master);
+      const sfx = ctx.createGain();
+      sfx.gain.value = 0.9;
+      sfx.connect(master);
       const noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
       const d = noise.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-      return { ctx, master, noise };
+      return { ctx, master, bgm, sfx, noise };
     }
-    const rgFreq = (m) => 440 * Math.pow(2, (m - 69) / 12);
-    function rgEnv(a, t, peak, dur, attack = 0.005) {
+    const mgFreq = (m) => 440 * Math.pow(2, (m - 69) / 12);
+    function mgEnv(a, out, t, peak, dur, attack = 0.005) {
       const g = a.ctx.createGain();
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(peak, t + attack);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      g.connect(a.master);
+      g.connect(out);
       return g;
     }
-    function rgTone(a, type, freq, t, dur, peak) {
+    function mgTone(a, out, type, freq, t, dur, peak) {
       const o = a.ctx.createOscillator();
       o.type = type;
       o.frequency.setValueAtTime(freq, t);
-      o.connect(rgEnv(a, t, peak, dur));
+      o.connect(mgEnv(a, out, t, peak, dur));
       o.start(t);
       o.stop(t + dur + 0.05);
       return o;
     }
-    function rgNoise(a, t, dur, peak, highpass) {
+    function mgNoise(a, out, t, dur, peak, highpass) {
       const s = a.ctx.createBufferSource();
       const f = a.ctx.createBiquadFilter();
       s.buffer = a.noise;
       f.type = "highpass";
       f.frequency.value = highpass;
-      s.connect(f).connect(rgEnv(a, t, peak, dur, 0.001));
+      s.connect(f).connect(mgEnv(a, out, t, peak, dur, 0.001));
       s.start(t, Math.random() * 0.5);
       s.stop(t + dur + 0.05);
     }
-    function rgPlay(a, e, t) {
-      if (e.kind === "kick") rgTone(a, "sine", 150, t, 0.22, 0.9).frequency.exponentialRampToValueAtTime(45, t + 0.15);
-      else if (e.kind === "snare") { rgNoise(a, t, 0.14, 0.35, 1500); rgTone(a, "triangle", 190, t, 0.08, 0.2); }
-      else if (e.kind === "hat") rgNoise(a, t, e.a ? 0.12 : 0.04, e.a ? 0.12 : 0.08, 7000);
-      else if (e.kind === "crash") rgNoise(a, t, 1.6, 0.25, 4000);
-      else if (e.kind === "bass") rgTone(a, "triangle", rgFreq(e.a), t, RG_SPB * 0.45, 0.32);
-      else if (e.kind === "stab") e.a.forEach((m) => rgTone(a, "square", rgFreq(m), t, 0.09, 0.025));
-      else if (e.kind === "chord") e.a.forEach((m) => rgTone(a, "square", rgFreq(m), t, 1.8, 0.03));
-      else if (e.kind === "lead") rgTone(a, "square", rgFreq(e.a), t, Math.max(0.12, e.b * RG_SPB * 0.85), 0.07);
+    function mgSfx(a, kind, i = 0) {
+      if (!a) return;
+      const t = a.ctx.currentTime, out = a.sfx;
+      if (kind === "link") {
+        const m = MG_SCALE[Math.min(i, MG_SCALE.length - 1)];
+        mgTone(a, out, "triangle", mgFreq(m), t, 0.16, 0.4);
+        mgTone(a, out, "sine", mgFreq(m + 12), t, 0.1, 0.12);
+      } else if (kind === "unlink") {
+        mgTone(a, out, "triangle", mgFreq(60), t, 0.06, 0.2);
+      } else if (kind === "pop") {
+        for (let k = 0; k < i; k++) {
+          const tt = t + k * 0.035, f = mgFreq(76 + Math.min(k, 14) * 2);
+          mgTone(a, out, "sine", f * 1.6, tt, 0.09, 0.35).frequency.exponentialRampToValueAtTime(f * 0.7, tt + 0.08);
+          mgNoise(a, out, tt, 0.03, 0.12, 3000);
+        }
+      } else if (kind === "bombMade") {
+        [84, 88, 91, 96].forEach((m, k) => mgTone(a, out, "triangle", mgFreq(m), t + 0.12 + k * 0.05, 0.12, 0.25));
+      } else if (kind === "boom") {
+        mgTone(a, out, "sine", 130, t, 0.45, 1).frequency.exponentialRampToValueAtTime(38, t + 0.4);
+        mgNoise(a, out, t, 0.5, 0.55, 250);
+      } else if (kind === "fever") {
+        [72, 76, 79, 84, 88, 91].forEach((m, k) => mgTone(a, out, "square", mgFreq(m), t + k * 0.06, 0.14, 0.12));
+        mgNoise(a, out, t, 0.6, 0.15, 5000);
+      } else if (kind === "count") {
+        mgTone(a, out, "square", i ? 1320 : 880, t, i ? 0.35 : 0.15, 0.18);
+      } else if (kind === "tick") {
+        mgTone(a, out, "square", 1046, t, 0.06, 0.12);
+      } else if (kind === "whistle") {
+        mgTone(a, out, "square", 1568, t, 0.12, 0.2);
+        mgTone(a, out, "square", 1568, t + 0.18, 0.55, 0.2);
+      } else if (kind === "fanfare") {
+        [72, 76, 79, 84].forEach((m, k) => mgTone(a, out, "square", mgFreq(m), t + k * 0.12, k === 3 ? 0.6 : 0.14, 0.12));
+      }
     }
-    const rgAlpha = (hex, a) =>
-      `rgba(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)}, ${a})`;
+
+    // オリジナルのBGM（8小節をくり返す。フィーバー中はにぎやかになる）
+    const MG_SPB = 60 / 132;
+    const MG_BARS = ["C", "G", "Am", "F", "C", "G", "F", "G"];
+    const MG_CHORDS = {
+      C: { root: 36, notes: [60, 64, 67] }, G: { root: 43, notes: [59, 62, 67] },
+      Am: { root: 45, notes: [57, 60, 64] }, F: { root: 41, notes: [57, 60, 65] },
+    };
+    // メロディ：[拍, 音(MIDI番号), 長さ(拍)]
+    const MG_MELODY = [
+      [0, 76, 0.5], [0.5, 79, 0.5], [1, 81, 1], [2, 79, 0.5], [2.5, 76, 0.5], [3, 72, 1],
+      [4, 74, 0.5], [4.5, 76, 0.5], [5, 79, 1], [6, 74, 1.5], [7.5, 71, 0.5],
+      [8, 72, 0.5], [8.5, 76, 0.5], [9, 81, 1], [10, 79, 0.5], [10.5, 81, 0.5], [11, 84, 1],
+      [12, 81, 1], [13, 77, 0.5], [13.5, 79, 0.5], [14, 81, 2],
+      [16, 84, 0.5], [16.5, 81, 0.5], [17, 79, 1], [18, 76, 0.5], [18.5, 79, 0.5], [19, 84, 1],
+      [20, 83, 0.5], [20.5, 79, 0.5], [21, 74, 1], [22, 79, 1], [23, 83, 1],
+      [24, 84, 1], [25, 81, 0.5], [25.5, 77, 0.5], [26, 81, 1], [27, 84, 1],
+      [28, 86, 1.5], [29.5, 83, 0.5], [30, 79, 1], [31, 74, 1],
+    ];
+    const MG_MELODY_AT = new Map(MG_MELODY.map(([b, m, len]) => [Math.round(b * 4), [m, len]]));
+    function mgBgmStep(a, k, t, fever) {
+      const pos = k % 16, bar = Math.floor(k / 16) % 8, out = a.bgm;
+      const chord = MG_CHORDS[MG_BARS[bar]];
+      if (pos % 4 === 0) mgTone(a, out, "sine", 150, t, 0.2, 0.9).frequency.exponentialRampToValueAtTime(45, t + 0.14);
+      if (pos === 4 || pos === 12) { mgNoise(a, out, t, 0.13, 0.32, 1500); mgTone(a, out, "triangle", 200, t, 0.07, 0.18); }
+      if (fever || pos % 2 === 0) mgNoise(a, out, t, 0.035, pos % 4 === 2 ? 0.1 : 0.06, 7000);
+      if (pos % 2 === 0) mgTone(a, out, "triangle", mgFreq(chord.root + (pos % 4 === 2 ? 12 : 0)), t, MG_SPB * 0.42, 0.34);
+      if (pos % 4 === 2) chord.notes.forEach((m) => mgTone(a, out, "square", mgFreq(m), t, 0.09, 0.022));
+      const mel = MG_MELODY_AT.get(bar * 16 + pos);
+      if (mel) mgTone(a, out, "square", mgFreq(mel[0]), t, Math.max(0.12, mel[1] * MG_SPB * 0.85), fever ? 0.075 : 0.06);
+      if (fever) mgTone(a, out, "triangle", mgFreq(chord.notes[pos % 3] + 24), t, 0.07, 0.05);
+    }
+
+    // ---- どうぶつの絵（最初に1回だけ描いておく） ----
+    function mgShade(hex, amt) {
+      const n = parseInt(hex.slice(1), 16), to = amt < 0 ? 0 : 255, k = Math.abs(amt);
+      const ch = (v) => Math.round(v + (to - v) * k);
+      return `rgb(${ch(n >> 16)}, ${ch((n >> 8) & 255)}, ${ch(n & 255)})`;
+    }
+    function mgCanvas(dpr) {
+      const c = document.createElement("canvas");
+      c.width = c.height = Math.ceil(MG_R * 3.4 * dpr);
+      const g = c.getContext("2d");
+      g.scale(dpr, dpr);
+      g.translate(MG_R * 1.7, MG_R * 1.7);
+      g.lineJoin = "round";
+      g.lineCap = "round";
+      return [c, g];
+    }
+    function mgStar(g, x, y, outer, inner, color) {
+      g.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? inner : outer;
+        g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+      }
+      g.closePath();
+      g.fillStyle = color;
+      g.fill();
+    }
+    function mgAnimalSprite(an, dpr) {
+      const [c, g] = mgCanvas(dpr), r = MG_R;
+      const dark = mgShade(an.color, -0.35), light = mgShade(an.color, 0.45), ink = "#3a2a2a";
+      const blob = (x, y, rx, ry, rot = 0) => { g.beginPath(); g.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); };
+      const smile = (x, y, rr) => { g.beginPath(); g.arc(x, y, rr, 0.1 * Math.PI, 0.9 * Math.PI); g.stroke(); };
+      const paint = (fill) => { g.fillStyle = fill; g.fill(); g.stroke(); };
+      g.lineWidth = 2;
+      g.strokeStyle = dark;
+      // 耳など（体のうしろ）
+      for (const s of [-1, 1]) {
+        if (an.kind === "cat") {
+          g.beginPath(); g.moveTo(s * 0.88 * r, -0.3 * r); g.lineTo(s * 0.74 * r, -1.18 * r); g.lineTo(s * 0.18 * r, -0.84 * r); g.closePath();
+          paint(an.color);
+          g.beginPath(); g.moveTo(s * 0.7 * r, -0.52 * r); g.lineTo(s * 0.68 * r, -0.98 * r); g.lineTo(s * 0.38 * r, -0.8 * r); g.closePath();
+          g.fillStyle = "#ffc9d9"; g.fill();
+        } else if (an.kind === "rabbit") {
+          blob(s * 0.36 * r, -1.05 * r, 0.21 * r, 0.56 * r, s * 0.15); paint(an.color);
+          blob(s * 0.36 * r, -1.0 * r, 0.1 * r, 0.38 * r, s * 0.15); g.fillStyle = "#ffc9d9"; g.fill();
+        } else if (an.kind === "bear") {
+          blob(s * 0.68 * r, -0.7 * r, 0.33 * r, 0.33 * r); paint(an.color);
+          blob(s * 0.68 * r, -0.7 * r, 0.17 * r, 0.17 * r); g.fillStyle = light; g.fill();
+        } else if (an.kind === "frog") {
+          blob(s * 0.45 * r, -0.72 * r, 0.34 * r, 0.34 * r); paint(an.color);
+        } else if (an.kind === "chick") {
+          blob(s * 0.14 * r, -1.02 * r, 0.08 * r, 0.22 * r, s * 0.5); paint(an.color);
+          if (s > 0) { blob(0, -1.08 * r, 0.08 * r, 0.24 * r); paint(an.color); }
+        }
+      }
+      // 体・つや・ほっぺ
+      blob(0, 0, r - 1, r - 1); paint(an.color);
+      blob(-0.38 * r, -0.48 * r, 0.3 * r, 0.16 * r, -0.6); g.fillStyle = "rgba(255, 255, 255, 0.5)"; g.fill();
+      g.fillStyle = "rgba(255, 110, 140, 0.4)";
+      for (const s of [-1, 1]) { blob(s * 0.56 * r, 0.22 * r, 0.15 * r, 0.1 * r); g.fill(); }
+      // 目
+      const eye = (x, y) => {
+        blob(x, y, 0.085 * r, 0.12 * r); g.fillStyle = ink; g.fill();
+        blob(x + 0.03 * r, y - 0.05 * r, 0.035 * r, 0.035 * r); g.fillStyle = "#fff"; g.fill();
+      };
+      if (an.kind === "frog") {
+        for (const s of [-1, 1]) { blob(s * 0.45 * r, -0.74 * r, 0.21 * r, 0.21 * r); g.fillStyle = "#fff"; g.fill(); eye(s * 0.45 * r, -0.72 * r); }
+      } else {
+        eye(-0.32 * r, -0.04 * r);
+        eye(0.32 * r, -0.04 * r);
+      }
+      // 口まわり
+      g.strokeStyle = ink;
+      g.lineWidth = 1.6;
+      if (an.kind === "cat") {
+        smile(-0.09 * r, 0.14 * r, 0.09 * r);
+        smile(0.09 * r, 0.14 * r, 0.09 * r);
+      } else if (an.kind === "bear") {
+        blob(0, 0.27 * r, 0.3 * r, 0.22 * r); g.fillStyle = light; g.fill();
+        blob(0, 0.18 * r, 0.09 * r, 0.065 * r); g.fillStyle = ink; g.fill();
+        g.beginPath(); g.moveTo(0, 0.24 * r); g.lineTo(0, 0.34 * r); g.stroke();
+      } else if (an.kind === "rabbit") {
+        blob(0, 0.12 * r, 0.06 * r, 0.045 * r); g.fillStyle = "#ff8fb1"; g.fill();
+        smile(-0.07 * r, 0.18 * r, 0.07 * r);
+        smile(0.07 * r, 0.18 * r, 0.07 * r);
+      } else if (an.kind === "chick") {
+        g.beginPath(); g.moveTo(-0.15 * r, 0.14 * r); g.lineTo(0, 0.04 * r); g.lineTo(0.15 * r, 0.14 * r); g.lineTo(0, 0.3 * r); g.closePath();
+        g.fillStyle = "#ff9f1c"; g.fill();
+      } else if (an.kind === "frog") {
+        g.beginPath(); g.arc(0, -0.02 * r, 0.42 * r, 0.22 * Math.PI, 0.78 * Math.PI); g.stroke();
+      }
+      return c;
+    }
+    function mgBombSprite(dpr) {
+      const [c, g] = mgCanvas(dpr), r = MG_R;
+      g.strokeStyle = "#c08a4a";
+      g.lineWidth = 3;
+      g.beginPath(); g.moveTo(0.45 * r, -0.75 * r); g.quadraticCurveTo(0.6 * r, -1.25 * r, 0.95 * r, -1.1 * r); g.stroke();
+      g.save(); g.translate(0.5 * r, -0.8 * r); g.rotate(0.6);
+      g.fillStyle = "#6a6a8c"; g.fillRect(-0.2 * r, -0.13 * r, 0.4 * r, 0.26 * r);
+      g.restore();
+      g.beginPath(); g.arc(0, 0, r - 1, 0, Math.PI * 2);
+      g.fillStyle = "#4a4a68"; g.fill();
+      g.strokeStyle = "#2a2a3e"; g.lineWidth = 2; g.stroke();
+      g.beginPath(); g.ellipse(-0.38 * r, -0.45 * r, 0.3 * r, 0.16 * r, -0.6, 0, Math.PI * 2);
+      g.fillStyle = "rgba(255, 255, 255, 0.35)"; g.fill();
+      mgStar(g, 0, 0.06 * r, 0.52 * r, 0.22 * r, "#fff");
+      return c;
+    }
+
     const SOUND_NOTE = `<p class="sound-note"><b><span class="speaker" aria-hidden="true">🔊</span>音が出るよ！</b>マナーモードをOFFにして、<br>音量を上げてね</p>`;
 
     function renderGame() {
@@ -197,40 +335,489 @@
               <button class="skip-btn" type="button">スキップして手紙をひらく</button>
             </div>
             <p class="game-title">${esc(SITE.game.title)}</p>
-            <div class="rg-stage">
-              <canvas class="rg-canvas" aria-label="音ゲーの画面"></canvas>
-              <div class="rg-overlay">
+            <div class="mg-stage">
+              <canvas class="mg-canvas" aria-label="パズルの画面"></canvas>
+              <div class="mg-overlay">
                 ${SOUND_NOTE}
-                <button class="rg-start" type="button">スタート</button>
-                <p class="rg-msg" aria-live="polite"></p>
+                <button class="mg-start" type="button">スタート</button>
+                <p class="mg-msg" aria-live="polite"></p>
               </div>
             </div>
-            <p class="game-tip">♪ が白い線に重なった瞬間に、その列をタップ！</p>
+            <p class="game-tip">指でなぞって同じどうぶつを3つ以上つなげよう。7つ以上つなげるとボムが出るよ</p>
           </div>
         </section>`, "is-cover");
 
-      const cv = app.querySelector(".rg-canvas");
-      const overlay = app.querySelector(".rg-overlay");
-      const msgEl = app.querySelector(".rg-msg");
-      const W = 300, H = 420, LANES = 3, LW = W / LANES, HIT_Y = 356, SPEED = 300;
+      const cv = app.querySelector(".mg-canvas");
+      const overlay = app.querySelector(".mg-overlay");
+      const msgEl = app.querySelector(".mg-msg");
+      const W = MG_W, H = MG_H, FLOOR = H - 4;
       const dpr = Math.min(3, window.devicePixelRatio || 2);
       cv.width = W * dpr;
       cv.height = H * dpr;
       const g = cv.getContext("2d");
       g.scale(dpr, dpr);
+      const sprites = MG_ANIMALS.map((an) => mgAnimalSprite(an, dpr));
+      const bombSprite = mgBombSprite(dpr);
       const bg = g.createLinearGradient(0, 0, 0, H);
-      bg.addColorStop(0, "#1c1a24");
-      bg.addColorStop(1, "#2e2939");
+      bg.addColorStop(0, "#fff7fb");
+      bg.addColorStop(1, "#ffe6d5");
       const font = (w, px) => `${w} ${px}px "Zen Kaku Gothic New", "Hiragino Sans", sans-serif`;
 
-      let audio = null, state = "ready", startAt = 0, lat = 0, events = [], evIdx = 0;
-      let notes = [], combo = 0, maxCombo = 0, pts = 0, counts = {}, pop = null, rings = [];
-      const flashes = [0, 0, 0];
+      let audio = null, state = "ready", t0 = 0, lastFrame = performance.now(), acc = 0;
+      let pieces = [], chain = null, chainPointer = null, lastPt = null, nextId = 0;
+      let score = 0, combo = 0, maxCombo = 0, maxChain = 0, cleared = 0, fevers = 0;
+      let lastClearAt = -99, fever = 0, gauge = 0, feverAt = -99, idleSince = 0, hint = [], hintAt = -99;
+      let fx = [], popups = [], shakeUntil = 0, lastTick = 99, lastCount = 99, autoAt = 0;
+      let bgmOn = false, bgmStep = 0, bgmTime = 0;
+      const gameTime = () => (performance.now() - t0) / 1000;
 
+      // ---- どうぶつを置く・ふやす ----
+      function makePiece(x, y, bomb = false) {
+        return { id: nextId++, x, y, px: x, py: y, r: MG_R, angle: 0, bomb, born: performance.now(),
+                 type: bomb ? -1 : Math.floor(Math.random() * MG_ANIMALS.length) };
+      }
+      function fill() {
+        pieces = [];
+        for (let i = 0; i < MG_COUNT; i++) {
+          const col = i % 6, row = Math.floor(i / 6);
+          pieces.push(makePiece(MG_R + 4 + col * ((W - MG_R * 2 - 8) / 5) + (Math.random() - 0.5) * 8,
+            FLOOR - MG_R - row * (MG_R * 2 + 2) - Math.random() * 6));
+        }
+      }
+      function refill() {
+        for (let i = 0; pieces.length < MG_COUNT; i++) {
+          pieces.push(makePiece(MG_R + Math.random() * (W - MG_R * 2), -MG_R - 20 - i * 34));
+        }
+      }
+      fill();
+
+      // ---- 重力とぶつかり（ころころ転がる） ----
+      const STEP = 1 / 120, GRAV = 1800;
+      function physics() {
+        const n = pieces.length, drop = GRAV * STEP * STEP;
+        for (const p of pieces) {
+          const vx = (p.x - p.px) * 0.99, vy = (p.y - p.py) * 0.99;
+          p.px = p.x;
+          p.py = p.y;
+          p.x += vx;
+          p.y += vy + drop;
+        }
+        for (let it = 0; it < 4; it++) {
+          for (let i = 0; i < n; i++) {
+            const a = pieces[i];
+            for (let j = i + 1; j < n; j++) {
+              const b = pieces[j], rr = a.r + b.r;
+              let dx = b.x - a.x, dy = b.y - a.y;
+              if (dx > rr || dx < -rr || dy > rr || dy < -rr) continue;
+              let d2 = dx * dx + dy * dy;
+              if (d2 >= rr * rr) continue;
+              if (d2 < 0.01) { dx = 0.1; dy = 0; d2 = 0.01; }
+              const d = Math.sqrt(d2), k = ((rr - d) / d) * 0.5;
+              a.x -= dx * k; a.y -= dy * k;
+              b.x += dx * k; b.y += dy * k;
+            }
+          }
+          for (const p of pieces) {
+            if (p.x < p.r) p.x = p.r;
+            else if (p.x > W - p.r) p.x = W - p.r;
+            if (p.y > FLOOR - p.r) p.y = FLOOR - p.r;
+          }
+        }
+        for (const p of pieces) {
+          if (p.y >= FLOOR - p.r - 0.5) p.px += (p.x - p.px) * 0.2;   // 床の上はすべりにくく
+          p.angle = Math.max(-0.6, Math.min(0.6, p.angle * 0.96 + (p.x - p.px) / p.r));
+        }
+      }
+
+      // ---- 指でなぞってつなげる ----
+      function toLocal(ev) {
+        const r = cv.getBoundingClientRect();
+        return { x: ((ev.clientX - r.left) / r.width) * W, y: ((ev.clientY - r.top) / r.height) * H };
+      }
+      function pieceAt(pt, reach) {
+        let best = null, bd = Infinity;
+        for (const p of pieces) {
+          const d = Math.hypot(p.x - pt.x, p.y - pt.y);
+          if (d < p.r * reach && d < bd) { best = p; bd = d; }
+        }
+        return best;
+      }
+      function extend(pt) {
+        const p = pieceAt(pt, 1.0);
+        if (!p || p.bomb || !chain) return;
+        const last = chain[chain.length - 1];
+        if (p === last) return;
+        if (chain.length >= 2 && p === chain[chain.length - 2]) { chain.pop(); mgSfx(audio, "unlink"); return; }
+        if (p.type !== chain[0].type || chain.includes(p)) return;
+        if (Math.hypot(p.x - last.x, p.y - last.y) > MG_LINK) return;
+        chain.push(p);
+        mgSfx(audio, "link", chain.length - 1);
+      }
+      // 速くなぞっても間のどうぶつを飛ばさないように、細かく区切って調べる
+      function trace(pt) {
+        const from = lastPt || pt, d = Math.hypot(pt.x - from.x, pt.y - from.y), steps = Math.max(1, Math.ceil(d / 8));
+        for (let i = 1; i <= steps; i++) extend({ x: from.x + ((pt.x - from.x) * i) / steps, y: from.y + ((pt.y - from.y) * i) / steps });
+        lastPt = pt;
+      }
+      function release() {
+        const list = chain;
+        chain = null;
+        chainPointer = null;
+        lastPt = null;
+        if (list && list.length >= 3) clearChain(list);
+      }
+      cv.addEventListener("pointerdown", (ev) => {
+        ev.preventDefault();
+        if (state !== "play" || chain) return;
+        const pt = toLocal(ev), p = pieceAt(pt, 1.15);
+        if (!p) return;
+        if (p.bomb) return explode(p);
+        try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
+        chain = [p];
+        chainPointer = ev.pointerId;
+        lastPt = pt;
+        mgSfx(audio, "link", 0);
+      });
+      cv.addEventListener("pointermove", (ev) => {
+        if (!chain || ev.pointerId !== chainPointer) return;
+        const list = ev.getCoalescedEvents ? ev.getCoalescedEvents() : [];
+        for (const e of list.length ? list : [ev]) trace(toLocal(e));
+      });
+      const up = (ev) => { if (chain && ev.pointerId === chainPointer) release(); };
+      cv.addEventListener("pointerup", up);
+      cv.addEventListener("pointercancel", up);
+
+      // ---- 消す・点数・コンボ・フィーバー・ボム ----
+      function bumpCombo() {
+        const t = gameTime();
+        combo = t - lastClearAt <= MG_COMBO_WINDOW ? combo + 1 : 1;
+        lastClearAt = t;
+        maxCombo = Math.max(maxCombo, combo);
+        idleSince = t;
+        hint = [];
+      }
+      function addScore(base, x, y, label) {
+        const mult = (fever > 0 ? 2 : 1) * (1 + Math.min(combo - 1, 20) * 0.05);
+        const pts = Math.round((base * mult) / 10) * 10;
+        score += pts;
+        popups.push({ x, y, text: `+${pts.toLocaleString()}`, label, born: performance.now() });
+      }
+      function burst(p) {
+        const color = p.bomb ? "#ffb347" : MG_ANIMALS[p.type].color, now = performance.now();
+        fx.push({ ring: true, x: p.x, y: p.y, color, born: now, life: 260 });
+        for (let k = 0; k < 7; k++) {
+          const a = Math.random() * Math.PI * 2, v = 90 + Math.random() * 160;
+          fx.push({ x: p.x, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, size: 2.5 + Math.random() * 3,
+                    color: k % 3 ? color : "#fff", born: now, life: 450 + Math.random() * 200 });
+        }
+      }
+      function removePieces(list) {
+        const gone = new Set(list);
+        pieces = pieces.filter((p) => !gone.has(p));
+        for (const p of list) { burst(p); if (!p.bomb) cleared++; }
+        if (fx.length > 600) fx.splice(0, fx.length - 600);
+      }
+      function clearChain(list) {
+        const n = list.length, last = list[n - 1];
+        bumpCombo();
+        maxChain = Math.max(maxChain, n);
+        addScore(n * (n + 1) * 25, last.x, last.y, n >= 5 ? `${n}チェーン！` : "");
+        removePieces(list);
+        if (n >= MG_BOMB_CHAIN) { pieces.push(makePiece(last.x, last.y, true)); mgSfx(audio, "bombMade"); }
+        refill();
+        mgSfx(audio, "pop", n);
+        addGauge(n);
+      }
+      function explode(bomb) {
+        const hit = new Set([bomb]), queue = [bomb], now = performance.now();
+        while (queue.length) {
+          const b = queue.pop();
+          fx.push({ ring: true, big: true, x: b.x, y: b.y, color: "#ffb347", born: now, life: 420 });
+          for (const p of pieces) {
+            if (hit.has(p) || Math.hypot(p.x - b.x, p.y - b.y) > MG_BOMB_RADIUS) continue;
+            hit.add(p);
+            if (p.bomb) queue.push(p);
+          }
+        }
+        const list = [...hit], n = list.filter((p) => !p.bomb).length;
+        bumpCombo();
+        addScore(300 + n * 120, bomb.x, bomb.y, "ボム！");
+        removePieces(list);
+        refill();
+        mgSfx(audio, "boom");
+        shakeUntil = now + 300;
+        addGauge(n);
+      }
+      function addGauge(n) {
+        if (fever > 0 || state !== "play") return;
+        gauge += n;
+        if (gauge >= MG_FEVER_NEED) {
+          gauge = 0;
+          fever = MG_FEVER_TIME;
+          fevers++;
+          feverAt = gameTime();
+          mgSfx(audio, "fever");
+        }
+      }
+      // 同じどうぶつのかたまり（ヒントと自動プレイに使う）
+      function groups() {
+        const seen = new Set(), out = [];
+        for (const p of pieces) {
+          if (p.bomb || seen.has(p)) continue;
+          const comp = [p];
+          seen.add(p);
+          for (let i = 0; i < comp.length; i++) {
+            for (const q of pieces) {
+              if (q.bomb || seen.has(q) || q.type !== p.type) continue;
+              if (Math.hypot(q.x - comp[i].x, q.y - comp[i].y) <= MG_LINK) { seen.add(q); comp.push(q); }
+            }
+          }
+          out.push(comp);
+        }
+        return out.sort((a, b) => b.length - a.length);
+      }
+      function pathIn(comp) {
+        let best = [];
+        for (const s of comp) {
+          const path = [s], used = new Set([s]);
+          for (;;) {
+            const end = path[path.length - 1];
+            const near = (q, from) => !used.has(q) && Math.hypot(q.x - from.x, q.y - from.y) <= MG_LINK;
+            const next = comp.filter((q) => near(q, end));
+            if (!next.length) break;
+            const deg = (q) => comp.filter((z) => z !== q && near(z, q)).length;
+            next.sort((a, b) => deg(a) - deg(b));
+            path.push(next[0]);
+            used.add(next[0]);
+          }
+          if (path.length > best.length) best = path;
+        }
+        return best;
+      }
+      if (MG_TEST) {
+        window.__mg = {
+          pieces: () => pieces.map((p) => ({ id: p.id, x: p.x, y: p.y, type: p.type, bomb: p.bomb })),
+          link: MG_LINK, w: W, h: H, state: () => state, score: () => score, fever: () => fever,
+        };
+      }
+
+      // ---- 時間の流れ ----
+      function tick(dt) {
+        const t = gameTime();
+        if (state === "count") {
+          const n = Math.ceil(-t);
+          if (n !== lastCount && n >= 1 && n <= 3) { lastCount = n; mgSfx(audio, "count", 0); }
+          if (t >= 0) {
+            state = "play";
+            idleSince = 0;
+            mgSfx(audio, "count", 1);
+            bgmOn = true;
+            bgmStep = 0;
+            bgmTime = audio.ctx.currentTime + 0.05;
+          }
+          return;
+        }
+        if (bgmOn) {
+          if (bgmTime < audio.ctx.currentTime - 0.1) bgmTime = audio.ctx.currentTime + 0.02;
+          while (bgmTime < audio.ctx.currentTime + 0.15) { mgBgmStep(audio, bgmStep++, bgmTime, fever > 0); bgmTime += MG_SPB / 4; }
+        }
+        if (state !== "play") return;
+        if (fever > 0) fever = Math.max(0, fever - dt);
+        const left = MG_TIME - t, whole = Math.ceil(left);
+        if (left <= 5 && whole > 0 && whole !== lastTick) { lastTick = whole; mgSfx(audio, "tick"); }
+        if (chain) hint = [];
+        else if (t - idleSince > 3 && t - hintAt > 0.5) {
+          hintAt = t;
+          const best = groups()[0];
+          hint = best && best.length >= 3 ? best : pieces.filter((p) => p.bomb);
+        }
+        if (MG_AUTO && t - autoAt > 1.2) {
+          autoAt = t;
+          const bomb = pieces.find((p) => p.bomb && p.y > 80);
+          if (bomb) explode(bomb);
+          else {
+            const path = pathIn(groups()[0] || []);
+            if (path.length >= 3) clearChain(path);
+          }
+        }
+        if (left <= 0) timeUp();
+      }
+      function timeUp() {
+        state = "timeup";
+        if (chain) release();
+        fever = 0;
+        hint = [];
+        bgmOn = false;
+        mgSfx(audio, "whistle");
+        setTimeout(() => { if (state === "timeup" && cv.isConnected) finish(); }, 1800);
+      }
+
+      // ---- 描く ----
+      function roundRect(x, y, w, h, r) {
+        g.beginPath();
+        if (g.roundRect) g.roundRect(x, y, w, h, r);
+        else g.rect(x, y, w, h);
+      }
+      function outlineText(text, x, y, f, fill, stroke, width = 5) {
+        g.font = f;
+        g.lineJoin = "round";
+        g.lineWidth = width;
+        g.strokeStyle = stroke;
+        g.strokeText(text, x, y);
+        g.fillStyle = fill;
+        g.fillText(text, x, y);
+      }
+      function draw(now) {
+        const t = state === "ready" ? -99 : gameTime();
+        g.save();
+        if (now < shakeUntil) g.translate((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8);
+        g.fillStyle = bg;
+        g.fillRect(-10, -10, W + 20, H + 20);
+        if (fever > 0) {
+          g.fillStyle = `hsla(${(now / 6) % 360}, 95%, 72%, 0.3)`;
+          g.fillRect(-10, -10, W + 20, H + 20);
+        }
+        for (const p of hint) {
+          g.fillStyle = `rgba(255, 255, 255, ${0.5 + 0.35 * Math.sin(now / 150)})`;
+          g.beginPath(); g.arc(p.x, p.y, p.r + 6, 0, Math.PI * 2); g.fill();
+        }
+        const inChain = new Set(chain || []);
+        for (const p of pieces) {
+          let s = inChain.has(p) ? 1.14 : 1;
+          if (p.bomb) s *= Math.min(1, 0.3 + (now - p.born) / 250) * (1 + 0.04 * Math.sin(now / 90));
+          g.save();
+          g.translate(p.x, p.y);
+          g.rotate(p.angle);
+          g.scale(s, s);
+          g.drawImage(p.bomb ? bombSprite : sprites[p.type], -MG_R * 1.7, -MG_R * 1.7, MG_R * 3.4, MG_R * 3.4);
+          if (p.bomb) mgStar(g, 0.95 * MG_R, -1.1 * MG_R, 5 + Math.random() * 3, 2.2, Math.random() < 0.5 ? "#ffe066" : "#ff9f1c");
+          g.restore();
+        }
+        if (chain && chain.length) {
+          g.lineCap = "round";
+          g.lineJoin = "round";
+          g.beginPath();
+          chain.forEach((p, i) => (i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)));
+          g.strokeStyle = "rgba(255, 255, 255, 0.95)";
+          g.lineWidth = 9;
+          g.stroke();
+          g.strokeStyle = mgShade(MG_ANIMALS[chain[0].type].color, -0.25);
+          g.lineWidth = 4;
+          g.stroke();
+          g.strokeStyle = "#fff";
+          g.lineWidth = 3;
+          for (const p of chain) { g.beginPath(); g.arc(p.x, p.y, p.r * 1.14 + 2, 0, Math.PI * 2); g.stroke(); }
+          const last = chain[chain.length - 1], bx = Math.min(W - 16, last.x + 18), by = Math.max(80, last.y - 24);
+          g.fillStyle = chain.length >= 3 ? "#ff5d8f" : "rgba(60, 50, 60, 0.75)";
+          g.beginPath(); g.arc(bx, by, 13, 0, Math.PI * 2); g.fill();
+          g.fillStyle = "#fff";
+          g.font = font(900, 14);
+          g.textAlign = "center";
+          g.textBaseline = "middle";
+          g.fillText(chain.length, bx, by + 1);
+        }
+        fx = fx.filter((f) => now - f.born < f.life);
+        for (const f of fx) {
+          const k = (now - f.born) / f.life;
+          g.globalAlpha = 1 - k;
+          if (f.ring) {
+            g.strokeStyle = f.color;
+            g.lineWidth = f.big ? 6 : 3;
+            g.beginPath(); g.arc(f.x, f.y, (f.big ? MG_BOMB_RADIUS : MG_R) * (0.5 + k * 0.8), 0, Math.PI * 2); g.stroke();
+          } else {
+            const s = (now - f.born) / 1000;
+            g.fillStyle = f.color;
+            g.beginPath(); g.arc(f.x + f.vx * s, f.y + f.vy * s + 260 * s * s, f.size * (1 - k * 0.5), 0, Math.PI * 2); g.fill();
+          }
+        }
+        g.globalAlpha = 1;
+        popups = popups.filter((p) => now - p.born < 900);
+        g.textAlign = "center";
+        g.textBaseline = "middle";
+        for (const p of popups) {
+          const k = (now - p.born) / 900, x = Math.max(44, Math.min(W - 44, p.x)), y = Math.max(96, p.y - 20 - k * 30);
+          g.globalAlpha = 1 - k * k;
+          outlineText(p.text, x, y, font(900, 16), "#fff", "#ff5d8f");
+          if (p.label) outlineText(p.label, x, y - 22, font(900, 18), "#fff", "#7a5cff");
+        }
+        g.globalAlpha = 1;
+        g.restore();
+        drawHud(now, t);
+      }
+      function drawHud(now, t) {
+        g.fillStyle = "rgba(255, 255, 255, 0.9)";
+        roundRect(6, 6, W - 12, 44, 14);
+        g.fill();
+        g.textAlign = "left";
+        g.textBaseline = "alphabetic";
+        g.fillStyle = "#9a8c96";
+        g.font = font(700, 10);
+        g.fillText("SCORE", 18, 22);
+        g.fillStyle = "#2b2430";
+        g.font = font(900, 18);
+        g.fillText(score.toLocaleString(), 18, 42);
+        const left = state === "play" ? Math.max(0, MG_TIME - t) : state === "timeup" ? 0 : MG_TIME;
+        g.fillStyle = state === "play" && left <= 5 ? "#e5484d" : "#2b2430";
+        g.beginPath(); g.arc(W / 2, 28, 20, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = "#ffc94a";
+        g.lineWidth = 3;
+        g.beginPath(); g.arc(W / 2, 28, 20, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (left / MG_TIME)); g.stroke();
+        g.fillStyle = "#fff";
+        g.font = font(900, 19);
+        g.textAlign = "center";
+        g.textBaseline = "middle";
+        g.fillText(Math.ceil(left), W / 2, 29);
+        if (state === "play" && combo >= 2 && t - lastClearAt <= MG_COMBO_WINDOW) {
+          g.textAlign = "right";
+          g.textBaseline = "alphabetic";
+          g.fillStyle = "#9a8c96";
+          g.font = font(700, 10);
+          g.fillText("COMBO", W - 18, 22);
+          g.fillStyle = "#ff5d8f";
+          g.font = font(900, 18);
+          g.fillText(combo, W - 18, 42);
+        }
+        // フィーバーのたまり具合（フィーバー中は残り時間）
+        const gx = 14, gy = 56, gw = W - 86, gh = 9;   // 右はしに「FEVER」の文字
+        g.fillStyle = "rgba(255, 255, 255, 0.85)";
+        roundRect(gx, gy, gw, gh, 4.5);
+        g.fill();
+        const k = fever > 0 ? fever / MG_FEVER_TIME : gauge / MG_FEVER_NEED;
+        if (k > 0) {
+          g.fillStyle = fever > 0 ? `hsl(${(now / 4) % 360}, 90%, 60%)` : "#ff8fb1";
+          roundRect(gx, gy, Math.max(gh, gw * k), gh, 4.5);
+          g.fill();
+        }
+        g.font = font(900, 10);
+        g.textAlign = "right";
+        g.textBaseline = "middle";
+        g.fillStyle = fever > 0 ? `hsl(${(now / 4) % 360}, 80%, 45%)` : "#b0607f";
+        g.fillText(fever > 0 ? "FEVER ×2" : "FEVER", W - 14, gy + gh / 2 + 0.5);
+        g.textAlign = "center";
+        if (state === "count") outlineText(String(Math.max(1, Math.ceil(-t))), W / 2, H / 2 - 10, font(900, 72), "#fff", "#ff5d8f", 10);
+        else if (state === "play" && t < 0.7) outlineText("スタート！", W / 2, H / 2 - 10, font(900, 40), "#fff", "#ff5d8f", 9);
+        else if (state === "timeup") outlineText("タイムアップ！", W / 2, H / 2 - 10, font(900, 34), "#fff", "#4a7cff", 9);
+        if (state === "play" && fever > 0 && t - feverAt < 1.2) outlineText("FEVER!!", W / 2, 130, font(900, 40), "#fff", "#ff8c1a", 9);
+      }
+
+      function frame(now) {
+        if (!cv.isConnected || state === "left" || state === "result") return;
+        const dt = Math.min(0.05, Math.max(0, (now - lastFrame) / 1000));
+        lastFrame = now;
+        acc = Math.min(acc + dt, STEP * 8);
+        while (acc >= STEP) { physics(); acc -= STEP; }
+        if (state === "count" || state === "play" || state === "timeup") tick(dt);
+        draw(now);
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+
+      // ---- はじめる・やめる ----
       function stopAudio(fade = 0) {
         if (!audio) return;
         const a = audio;
         audio = null;
+        bgmOn = false;
         try { a.master.gain.setTargetAtTime(0.0001, a.ctx.currentTime, Math.max(0.01, fade / 3)); } catch (e) {}
         setTimeout(() => { a.ctx.close().catch(() => {}); }, fade * 1000 + 150);
       }
@@ -238,207 +825,75 @@
         state = "left";
         stopAudio();
         document.removeEventListener("visibilitychange", onHide);
-        document.removeEventListener("keydown", onKey);
         next();
-      }
-      // 曲の何秒目か（耳に音が届くタイミングに合わせる）
-      const now = () => audio.ctx.currentTime - startAt - lat;
-      const scoreOf = () => Math.round((900000 * pts + 100000 * maxCombo) / notes.length);
-
-      function start() {
-        audio = rgMakeAudio();
-        if (audio.ctx.state === "suspended") audio.ctx.resume();
-        lat = (audio.ctx.outputLatency || 0) + (audio.ctx.baseLatency || 0);
-        startAt = audio.ctx.currentTime + 0.3;
-        events = rgSongEvents();
-        evIdx = 0;
-        notes = RG_CHART.map(([beat, lane]) => ({ t: beat * RG_SPB, lane, judge: null }));
-        combo = maxCombo = pts = 0;
-        counts = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 };
-        pop = null;
-        rings = [];
-        overlay.hidden = true;
-        msgEl.textContent = "";
-        state = "play";
-      }
-      // これから0.5秒ぶんの音を予約しておく
-      function schedule() {
-        const horizon = audio.ctx.currentTime + 0.5;
-        while (evIdx < events.length && startAt + events[evIdx].beat * RG_SPB < horizon) {
-          const e = events[evIdx++];
-          rgPlay(audio, e, Math.max(startAt + e.beat * RG_SPB, audio.ctx.currentTime));
-        }
-      }
-      function judge(note, kind) {
-        note.judge = kind;
-        counts[kind]++;
-        pts += RG_PTS[kind];
-        pop = { kind, at: performance.now() };
-        if (kind === "MISS") { combo = 0; return; }
-        combo++;
-        maxCombo = Math.max(maxCombo, combo);
-        flashes[note.lane] = 1;
-        rings.push({ lane: note.lane, at: performance.now() });
-        rgTone(audio, "sine", { PERFECT: 1320, GREAT: 1050, GOOD: 820 }[kind], audio.ctx.currentTime, 0.07, 0.18);
-      }
-      function hit(lane, t) {
-        if (state !== "play") return;
-        flashes[lane] = Math.max(flashes[lane], 0.45);
-        let best = null;
-        for (const n of notes) {
-          if (n.t - t > RG_WIN.GOOD) break;          // 譜面は時間順なので、先のノーツは見なくていい
-          if (n.judge || n.lane !== lane) continue;
-          if (Math.abs(n.t - t) <= RG_WIN.GOOD && (!best || Math.abs(n.t - t) < Math.abs(best.t - t))) best = n;
-        }
-        if (!best) return;
-        const d = Math.abs(best.t - t);
-        judge(best, d <= RG_WIN.PERFECT ? "PERFECT" : d <= RG_WIN.GREAT ? "GREAT" : "GOOD");
-      }
-      // タップした瞬間（イベントが届くまでの遅れを引く）を曲の時間になおす
-      function tapTime(ev) {
-        const delay = Math.max(0, Math.min(0.1, (performance.now() - ev.timeStamp) / 1000));
-        return now() - delay;
-      }
-      cv.addEventListener("pointerdown", (ev) => {
-        ev.preventDefault();
-        if (state !== "play") return;
-        const r = cv.getBoundingClientRect();
-        hit(Math.max(0, Math.min(LANES - 1, Math.floor(((ev.clientX - r.left) / r.width) * LANES))), tapTime(ev));
-      });
-      function onKey(ev) {
-        const lane = { ArrowLeft: 0, ArrowDown: 1, ArrowUp: 1, ArrowRight: 2 }[ev.key];
-        if (lane === undefined || state !== "play" || ev.repeat) return;
-        ev.preventDefault();
-        hit(lane, now());
       }
       // アプリを切りかえたりして画面が隠れたら、そこで止める
       function onHide() {
-        if (!document.hidden || state !== "play") return;
+        if (!document.hidden || (state !== "count" && state !== "play")) return;
         stopAudio();
         state = "ready";
-        notes = [];
-        combo = 0;
+        chain = null;
+        fever = 0;
         overlay.hidden = false;
         msgEl.textContent = "とちゅうで止まったので、もう一回スタートしてね";
       }
-      document.addEventListener("keydown", onKey);
+      function start() {
+        stopAudio();
+        audio = mgMakeAudio();
+        if (audio.ctx.state === "suspended") audio.ctx.resume();
+        score = combo = maxCombo = maxChain = cleared = fevers = gauge = fever = 0;
+        lastClearAt = feverAt = hintAt = -99;
+        idleSince = 0;
+        chain = null;
+        hint = [];
+        fx = [];
+        popups = [];
+        lastTick = lastCount = 99;
+        autoAt = 0;
+        t0 = performance.now() + 3000;
+        overlay.hidden = true;
+        msgEl.textContent = "";
+        state = "count";
+      }
       document.addEventListener("visibilitychange", onHide);
       app.querySelector(".skip-btn").addEventListener("click", () => leave(renderOpening));
-      app.querySelector(".rg-start").addEventListener("click", start);
-
-      function draw(t) {
-        g.fillStyle = bg;
-        g.fillRect(0, 0, W, H);
-        for (let i = 0; i < LANES; i++) {
-          flashes[i] = Math.max(0, flashes[i] - 0.06);
-          if (flashes[i] > 0) { g.fillStyle = rgAlpha(RG_LANE_COLORS[i], 0.3 * flashes[i]); g.fillRect(i * LW, 0, LW, H); }
-          if (i) { g.fillStyle = "rgba(255, 255, 255, 0.08)"; g.fillRect(i * LW - 0.5, 0, 1, H); }
-        }
-        g.fillStyle = "rgba(255, 255, 255, 0.9)";
-        g.fillRect(0, HIT_Y - 1, W, 2);
-        g.lineWidth = 2;
-        for (let i = 0; i < LANES; i++) {
-          g.strokeStyle = flashes[i] > 0.5 ? RG_LANE_COLORS[i] : "rgba(255, 255, 255, 0.55)";
-          g.beginPath(); g.arc(i * LW + LW / 2, HIT_Y, 22, 0, Math.PI * 2); g.stroke();
-        }
-        rings = rings.filter((r) => performance.now() - r.at < 300);
-        for (const r of rings) {
-          const k = (performance.now() - r.at) / 300;
-          g.strokeStyle = rgAlpha(RG_LANE_COLORS[r.lane], 1 - k);
-          g.lineWidth = 3;
-          g.beginPath(); g.arc(r.lane * LW + LW / 2, HIT_Y, 22 + k * 22, 0, Math.PI * 2); g.stroke();
-        }
-        g.textAlign = "center";
-        g.textBaseline = "middle";
-        for (const n of notes) {
-          if (n.judge && n.judge !== "MISS") continue;
-          const y = HIT_Y - (n.t - t) * SPEED;
-          if (y < -30) break;                        // ここから先はまだ画面の上
-          if (y > H + 30) continue;
-          const x = n.lane * LW + LW / 2;
-          g.globalAlpha = n.judge ? 0.3 : 1;
-          g.fillStyle = RG_LANE_COLORS[n.lane];
-          g.beginPath(); g.arc(x, y, 19, 0, Math.PI * 2); g.fill();
-          g.fillStyle = "#fff";
-          g.font = font(700, 18);
-          g.fillText("♪", x, y + 1);
-          g.globalAlpha = 1;
-        }
-        if (pop && performance.now() - pop.at < 500) {
-          const age = (performance.now() - pop.at) / 500;
-          g.globalAlpha = 1 - age;
-          g.fillStyle = { PERFECT: "#ffe066", GREAT: "#7cf29c", GOOD: "#8ecbff", MISS: "#a7a3b0" }[pop.kind];
-          g.font = font(900, age < 0.15 ? 30 : 26);
-          g.fillText(pop.kind, W / 2, HIT_Y - 70);
-          g.globalAlpha = 1;
-        }
-        if (state !== "play") return;
-        if (combo >= 3) {
-          g.fillStyle = "rgba(255, 255, 255, 0.9)"; g.font = font(900, 40); g.fillText(combo, W / 2, 150);
-          g.fillStyle = "rgba(255, 255, 255, 0.55)"; g.font = font(700, 12); g.fillText("COMBO", W / 2, 180);
-        }
-        if (t < 4 * RG_SPB) {                          // 1小節目は 3・2・1・GO!
-          const label = t < 0 ? "" : ["3", "2", "1", "GO!"][Math.floor(t / RG_SPB)] || "";
-          g.fillStyle = "#fff"; g.font = font(900, 56); g.fillText(label, W / 2, 200);
-        }
-        g.fillStyle = "rgba(255, 255, 255, 0.15)"; g.fillRect(0, 0, W, 4);
-        g.fillStyle = "#ffc94a"; g.fillRect(0, 0, W * Math.max(0, Math.min(1, t / (RG_END_BEAT * RG_SPB))), 4);
-        g.textAlign = "left"; g.fillStyle = "#fff"; g.font = font(700, 13);
-        g.fillText(`SCORE ${scoreOf().toLocaleString()}`, 10, 20);
-      }
-
-      function frame() {
-        if (!cv.isConnected || state === "left" || state === "result") return;
-        let t = -1;
-        if (state === "play") {
-          schedule();
-          t = now();
-          for (const n of notes) {
-            if (n.t > t) break;
-            if (!n.judge && RG_AUTO) judge(n, "PERFECT");
-            else if (!n.judge && t - n.t > RG_WIN.GOOD) judge(n, "MISS");
-          }
-          if (t > RG_END_BEAT * RG_SPB) return finish();
-        }
-        draw(t);
-        requestAnimationFrame(frame);
-      }
-      requestAnimationFrame(frame);
+      app.querySelector(".mg-start").addEventListener("click", start);
 
       function finish() {
         state = "result";
-        stopAudio(1.2);
-        const n = notes.length;
-        const r = { score: scoreOf(), acc: Math.round((pts / n) * 10000) / 100, combo: maxCombo, ...counts };
-        const rank = r.score >= 950000 ? "S" : r.score >= 850000 ? "A" : r.score >= 700000 ? "B" : "C";
+        mgSfx(audio, "fanfare");
+        setTimeout(() => stopAudio(0.4), 1200);
+        const rank = score >= MG_RANK.S ? "S" : score >= MG_RANK.A ? "A" : score >= MG_RANK.B ? "B" : "C";
         app.querySelector(".game-tip").hidden = true;
-        app.querySelector(".rg-stage").outerHTML = `
-          <div class="rg-result">
-            <p class="rg-rank">${rank}</p>
-            <p class="rg-score">${r.score.toLocaleString()}<span>点</span></p>
-            <ul class="rg-counts">
-              <li><b class="p">PERFECT</b>${r.PERFECT}</li>
-              <li><b class="gr">GREAT</b>${r.GREAT}</li>
-              <li><b class="go">GOOD</b>${r.GOOD}</li>
-              <li><b class="m">MISS</b>${r.MISS}</li>
+        app.querySelector(".mg-stage").outerHTML = `
+          <div class="mg-result">
+            <p class="mg-rank">${rank}</p>
+            <p class="mg-score">${score.toLocaleString()}<span>点</span></p>
+            <ul class="mg-stats">
+              <li><b>消した数</b>${cleared}</li>
+              <li><b>最大チェーン</b>${maxChain}</li>
+              <li><b>最大コンボ</b>${maxCombo}</li>
+              <li><b>フィーバー</b>${fevers}回</li>
             </ul>
-            <p class="rg-sub">正確さ ${r.acc.toFixed(2)}%　最大コンボ ${r.combo}</p>
-            <div class="rg-board">${RANKING_URL ? `<p class="rg-board-msg">ランキングを読みこみ中…</p>` : ""}</div>
-            <button class="rg-letter" type="button">手紙をひらく</button>
-            <button class="rg-again" type="button">もう一回あそぶ</button>
+            <div class="mg-board">${RANKING_URL ? `<p class="mg-board-msg">ランキングを読みこみ中…</p>` : ""}</div>
+            <button class="mg-letter" type="button">手紙をひらく</button>
+            <button class="mg-again" type="button">もう一回あそぶ</button>
           </div>`;
-        app.querySelector(".rg-letter").addEventListener("click", () => leave(renderOpening));
-        app.querySelector(".rg-again").addEventListener("click", () => leave(renderGame));
-        if (RANKING_URL) loadRanking(r);
+        app.querySelector(".mg-letter").addEventListener("click", () => leave(renderOpening));
+        app.querySelector(".mg-again").addEventListener("click", () => leave(renderGame));
+        if (RANKING_URL) loadRanking();
       }
 
       // スコアを記録して、みんなの最高スコアの順位を出す
-      async function loadRanking(r) {
-        const box = app.querySelector(".rg-board");
+      async function loadRanking() {
+        const box = app.querySelector(".mg-board");
         const q = new URLSearchParams();
-        if (!RG_TEST) {
+        if (!MG_TEST) {
           q.set("name", SITE.name);
-          for (const k of ["score", "acc", "combo", "PERFECT", "GREAT", "GOOD", "MISS"]) q.set(k.toLowerCase(), r[k]);
+          q.set("score", score);
+          q.set("chain", maxChain);
+          q.set("combo", maxCombo);
+          q.set("count", cleared);
         }
         let data = null;
         try {
@@ -450,15 +905,15 @@
         } catch (e) {}
         if (!box.isConnected) return;
         if (!data || !Array.isArray(data.ranking)) {
-          box.innerHTML = `<p class="rg-board-msg">ランキングを読みこめなかった…<br>電波のいいところで「もう一回あそぶ」をしてみてね</p>`;
+          box.innerHTML = `<p class="mg-board-msg">ランキングを読みこめなかった…<br>電波のいいところで「もう一回あそぶ」をしてみてね</p>`;
           return;
         }
         const list = data.ranking;
         const mine = list.findIndex((x) => x.name === SITE.name);
         box.innerHTML = `
-          <p class="rg-board-title">26Webチーム ランキング<small>みんなの最高スコア</small></p>
-          ${mine >= 0 ? `<p class="rg-board-me">${esc(SITE.name)}は今 <b>${mine + 1}位</b>！</p>` : ""}
-          <ol class="rg-board-list">${list.map((x, i) => `
+          <p class="mg-board-title">26Webチーム ランキング<small>みんなの最高スコア</small></p>
+          ${mine >= 0 ? `<p class="mg-board-me">${esc(SITE.name)}は今 <b>${mine + 1}位</b>！</p>` : ""}
+          <ol class="mg-board-list">${list.map((x, i) => `
             <li class="${x.name === SITE.name ? "me" : ""}"><span class="no">${i + 1}</span><span class="nm">${esc(x.name)}</span><span class="sc">${Number(x.score).toLocaleString()}</span></li>`).join("")}
           </ol>`;
       }

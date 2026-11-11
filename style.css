@@ -482,7 +482,7 @@ a.work:active .work-image { transform: scale(0.98); }
 }
 @media (prefers-reduced-motion: reduce) { .sound-note .speaker { animation: none; } }
 
-/* ---------- ② 音ゲー（みんな共通） ---------- */
+/* ---------- ② ミニゲーム（みんな共通の「つなげて消す」パズル） ---------- */
 .game-card .game-head {
   display: flex;
   align-items: baseline;
@@ -492,24 +492,25 @@ a.work:active .work-image { transform: scale(0.98); }
   letter-spacing: 0.02em;
 }
 .game-card .game-head::after { content: ""; flex: 1; border-bottom: 1px solid currentColor; }
-.rg-stage {
+.mg-stage {
   position: relative;
   margin-top: 12px;
   overflow: hidden;
-  border-radius: 10px;
-  background: #1c1a24;
+  border-radius: 16px;
+  background: #fff3f6;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.06);
 }
-.rg-canvas {
+.mg-canvas {
   display: block;
   width: 100%;
   height: auto;
   aspect-ratio: 300 / 420;
-  touch-action: none;           /* タップしてもページが動かないように */
+  touch-action: none;           /* なぞってもページが動かないように */
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
-.rg-overlay {
+.mg-overlay {
   position: absolute;
   inset: 0;
   display: flex;
@@ -518,10 +519,12 @@ a.work:active .work-image { transform: scale(0.98); }
   justify-content: center;
   gap: 16px;
   padding: 20px;
-  background: rgba(20, 18, 26, 0.72);
+  background: rgba(255, 255, 255, 0.6);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
 }
-.rg-overlay[hidden] { display: none; }
-.rg-start {
+.mg-overlay[hidden] { display: none; }
+.mg-start {
   padding: 12px 48px;
   border: 0;
   border-radius: 999px;
@@ -530,18 +533,20 @@ a.work:active .work-image { transform: scale(0.98); }
   font: inherit;
   font-weight: 700;
   font-size: 1.15rem;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.2);
   cursor: pointer;
 }
-.rg-msg { margin: 0; min-height: 1.4em; color: #fff; font-size: 0.85rem; font-weight: 700; }
-.rg-result { margin-top: 10px; text-align: center; }
-.rg-rank { margin: 0; font-size: 3.4rem; font-weight: 900; line-height: 1.1; }
-.rg-score { margin: 0 0 10px; font-size: 2rem; font-weight: 900; font-variant-numeric: tabular-nums; }
-.rg-score span { margin-left: 2px; font-size: 0.9rem; }
-.rg-counts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0; padding: 0; list-style: none; }
-.rg-counts li {
+.mg-start:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2); }
+.mg-msg { margin: 0; min-height: 1.4em; color: #2b2430; font-size: 0.85rem; font-weight: 700; text-align: center; }
+.mg-result { margin-top: 10px; text-align: center; }
+.mg-rank { margin: 0; font-size: 3.4rem; font-weight: 900; line-height: 1.1; }
+.mg-score { margin: 0 0 10px; font-size: 2rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.mg-score span { margin-left: 2px; font-size: 0.9rem; }
+.mg-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0; padding: 0; list-style: none; }
+.mg-stats li {
   display: flex;
   flex-direction: column;
+  gap: 2px;
   padding: 6px 2px;
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.05);
@@ -549,20 +554,16 @@ a.work:active .work-image { transform: scale(0.98); }
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.rg-counts b { font-size: 0.62rem; letter-spacing: 0.04em; }
-.rg-counts .p { color: #b07f00; }
-.rg-counts .gr { color: #1c8a4a; }
-.rg-counts .go { color: #2a6fc0; }
-.rg-counts .m { color: #777; }
-.rg-sub { margin: 8px 0 0; font-size: 0.85rem; color: var(--sub, #666); }
-.rg-board { margin-top: 16px; }
-.rg-board-title { margin: 0 0 6px; font-weight: 700; }
-.rg-board-title small { display: block; font-weight: 500; font-size: 0.75rem; color: var(--sub, #666); }
-.rg-board-me { margin: 0 0 8px; }
-.rg-board-me b { font-size: 1.2rem; }
-.rg-board-msg { margin: 0; font-size: 0.85rem; color: var(--sub, #666); }
-.rg-board-list { margin: 0; padding: 0; list-style: none; text-align: left; border-top: 1px solid rgba(0, 0, 0, 0.12); }
-.rg-board-list li {
+.mg-stats b { font-size: 0.62rem; font-weight: 700; color: var(--sub, #666); white-space: nowrap; }
+@media (max-width: 360px) { .mg-stats { grid-template-columns: repeat(2, 1fr); } }
+.mg-board { margin-top: 16px; }
+.mg-board-title { margin: 0 0 6px; font-weight: 700; }
+.mg-board-title small { display: block; font-weight: 500; font-size: 0.75rem; color: var(--sub, #666); }
+.mg-board-me { margin: 0 0 8px; }
+.mg-board-me b { font-size: 1.2rem; }
+.mg-board-msg { margin: 0; font-size: 0.85rem; color: var(--sub, #666); }
+.mg-board-list { margin: 0; padding: 0; list-style: none; text-align: left; border-top: 1px solid rgba(0, 0, 0, 0.12); }
+.mg-board-list li {
   display: grid;
   grid-template-columns: 2em 1fr auto;
   gap: 8px;
@@ -570,9 +571,9 @@ a.work:active .work-image { transform: scale(0.98); }
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   font-variant-numeric: tabular-nums;
 }
-.rg-board-list li.me { background: rgba(0, 0, 0, 0.07); font-weight: 700; }
-.rg-board-list .no { font-weight: 900; text-align: center; }
-.rg-letter {
+.mg-board-list li.me { background: rgba(0, 0, 0, 0.07); font-weight: 700; }
+.mg-board-list .no { font-weight: 900; text-align: center; }
+.mg-letter {
   display: block;
   width: 100%;
   margin-top: 18px;
@@ -586,7 +587,7 @@ a.work:active .work-image { transform: scale(0.98); }
   font-size: 1.05rem;
   cursor: pointer;
 }
-.rg-again {
+.mg-again {
   margin-top: 10px;
   padding: 8px 20px;
   border: 1px solid currentColor;
